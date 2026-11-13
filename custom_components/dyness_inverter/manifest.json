@@ -1,0 +1,13 @@
+{
+  "domain": "dyness_inverter",
+  "name": "Dyness Inverter (Cloud)",
+  "codeowners": ["@Dewaldgrobbelaar"],
+  "config_flow": true,
+  "dependencies": ["diagnostics"],
+  "documentation": "https://github.com/Dewaldgrobbelaar/ha-dyness-inverter",
+  "issue_tracker": "https://github.com/Dewaldgrobbelaar/ha-dyness-inverter/issues",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "version": "0.1.0"
+}

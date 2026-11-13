@@ -1,0 +1,31 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dyness Open API",
+        "description": "Enter the App ID and App Secret from the Dyness portal (Developer Center → API Management). Leave region on Auto-detect unless it fails.",
+        "data": {
+          "api_id": "App ID",
+          "api_secret": "App Secret",
+          "region": "API region"
+        }
+      },
+      "devices": {
+        "title": "Choose devices",
+        "description": "Found {count} device(s) on {host}. Tick the ones to monitor. If your inverter is missing, type its serial number(s) below, separated by commas (the inverter S/N is on its side label).",
+        "data": {
+          "device_sns": "Devices",
+          "extra_sns": "Extra serial numbers"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Dyness rejected the App ID / Secret on every region tried. Check them, or pick your region manually.",
+      "cannot_connect": "Could not reach the Dyness API.",
+      "no_devices": "Select at least one device or enter a serial number."
+    },
+    "abort": {
+      "already_configured": "This App ID is already set up."
+    }
+  }
+}
