@@ -16,7 +16,9 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
     coordinator = entry.runtime_data
     return {
         "entry": async_redact_data(dict(entry.data), TO_REDACT),
+        "device_list": coordinator.device_list,
         "device_info": coordinator.device_info,
+        "errors": coordinator.errors,
         "raw_responses": coordinator.raw,
         "parsed": coordinator.data,
     }

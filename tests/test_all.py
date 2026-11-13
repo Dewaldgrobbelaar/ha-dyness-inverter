@@ -96,3 +96,19 @@ async def test_manual_sn_when_list_empty(hass, aioclient_mock):
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"extra_sns": SN})
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["data"]["host"].startswith("https://global") and result["data"]["device_sns"] == [SN]
+
+async def test_unsupported_model_stays_loaded(hass, aioclient_mock):
+    aioclient_mock.post(f"{AF}/v2/GetDeviceList", json=ok([{"deviceSn": SN}]))
+    for ep in ["GetDeviceInfBySN","GetRealTimeDataBySN","GetTotalEnergyDataBySN","GetStatusInfBySN"]:
+        aioclient_mock.post(f"{AF}/v2/{ep}", json={"code": "500", "info": "The current device model does not support API access"})
+    result = await hass.config_entries.flow.async_init("dyness_inverter", context={"source": config_entries.SOURCE_USER})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"api_id": "x", "api_secret": "y", "region": "africa"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"device_sns": [SN], "extra_sns": ""})
+    await hass.async_block_till_done()
+    entry = hass.config_entries.async_entries("dyness_inverter")[0]
+    assert entry.state.value == "loaded"
+    st = [s for s in hass.states.async_all("sensor") if s.entity_id.endswith("api_status")][0]
+    assert st.state == "No data" and "not support" in st.attributes["status_error"]
+    from custom_components.dyness_inverter.diagnostics import async_get_config_entry_diagnostics
+    diag = await async_get_config_entry_diagnostics(hass, entry)
+    assert diag["device_list"] == [{"deviceSn": SN}] and diag["errors"][SN]
