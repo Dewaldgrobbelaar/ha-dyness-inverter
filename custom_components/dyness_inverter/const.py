@@ -32,6 +32,9 @@ EP_DEVICE_INFO = "/v2/GetDeviceInfBySN"
 EP_REALTIME = "/v2/GetRealTimeDataBySN"
 EP_ENERGY = "/v2/GetTotalEnergyDataBySN"
 EP_STATUS = "/v2/GetStatusInfBySN"
+EP_V1_BIND = "/v1/device/bindSn"
+EP_V1_POWER = "/v1/device/getLastPowerDataBySn"
+EP_V1_REALTIME = "/v1/device/realTime/data"
 
 # Data sources polled for every device: key -> endpoint
 SOURCES: dict[str, str] = {

@@ -97,18 +97,46 @@ async def test_manual_sn_when_list_empty(hass, aioclient_mock):
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["data"]["host"].startswith("https://global") and result["data"]["device_sns"] == [SN]
 
-async def test_unsupported_model_stays_loaded(hass, aioclient_mock):
-    aioclient_mock.post(f"{AF}/v2/GetDeviceList", json=ok([{"deviceSn": SN}]))
-    for ep in ["GetDeviceInfBySN","GetRealTimeDataBySN","GetTotalEnergyDataBySN","GetStatusInfBySN"]:
-        aioclient_mock.post(f"{AF}/v2/{ep}", json={"code": "500", "info": "The current device model does not support API access"})
+HOSTS = ["af-openapi","global-openapi","eu-openapi","open-api","apacopen-api","me-openapi","na-openapi","latam-openapi","sa-openapi"]
+UNSUP = {"code": "500", "info": "The current device model does not support API access"}
+
+def mock_all_unsupported(aioclient_mock, skip=()):
+    for h in HOSTS:
+        base = f"https://{h}.dyness.com/openapi/ems-device"
+        for ep in ["v2/GetDeviceInfBySN","v2/GetRealTimeDataBySN","v2/GetTotalEnergyDataBySN","v2/GetStatusInfBySN",
+                   "v1/device/bindSn","v1/device/getLastPowerDataBySn","v1/device/realTime/data"]:
+            if (h, ep) not in skip:
+                aioclient_mock.post(f"{base}/{ep}", json=UNSUP)
+
+async def _setup(hass):
     result = await hass.config_entries.flow.async_init("dyness_inverter", context={"source": config_entries.SOURCE_USER})
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"api_id": "x", "api_secret": "y", "region": "africa"})
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"device_sns": [SN], "extra_sns": ""})
     await hass.async_block_till_done()
-    entry = hass.config_entries.async_entries("dyness_inverter")[0]
+    return hass.config_entries.async_entries("dyness_inverter")[0]
+
+async def test_unsupported_model_stays_loaded(hass, aioclient_mock):
+    aioclient_mock.post(f"{AF}/v2/GetDeviceList", json=ok([{"deviceSn": SN}]))
+    mock_all_unsupported(aioclient_mock)
+    entry = await _setup(hass)
     assert entry.state.value == "loaded"
     st = [s for s in hass.states.async_all("sensor") if s.entity_id.endswith("api_status")][0]
     assert st.state == "No data" and "not support" in st.attributes["status_error"]
+    assert len(st.attributes["probe"]) >= 9
     from custom_components.dyness_inverter.diagnostics import async_get_config_entry_diagnostics
     diag = await async_get_config_entry_diagnostics(hass, entry)
-    assert diag["device_list"] == [{"deviceSn": SN}] and diag["errors"][SN]
+    assert diag["device_list"] == [{"deviceSn": SN}] and diag["errors"][SN] and diag["probe_log"][SN]
+
+async def test_falls_back_to_v1(hass, aioclient_mock):
+    aioclient_mock.post(f"{AF}/v2/GetDeviceList", json=ok([{"deviceSn": SN}]))
+    aioclient_mock.post(f"{GL}/v1/device/bindSn", json=ok(None))
+    aioclient_mock.post(f"{GL}/v1/device/getLastPowerDataBySn", json=ok([{"soc": 77, "pvPower": 2100, "gridPower": -50}]))
+    aioclient_mock.post(f"{GL}/v1/device/realTime/data", json=ok([{"pointId": "400", "pointValue": "2"}]))
+    mock_all_unsupported(aioclient_mock, skip={("global-openapi", "v1/device/bindSn"),
+        ("global-openapi", "v1/device/getLastPowerDataBySn"), ("global-openapi", "v1/device/realTime/data")})
+    entry = await _setup(hass)
+    states = {s.attributes.get("api_field"): s for s in hass.states.async_all("sensor")}
+    assert states["soc"].state == "77.0"
+    assert states["pvPower"].attributes["unit_of_measurement"] == "W"
+    st = [s for s in hass.states.async_all("sensor") if s.entity_id.endswith("api_status")][0]
+    assert st.state == "OK" and st.attributes["api_used"] == "v1 @ https://global-openapi.dyness.com"

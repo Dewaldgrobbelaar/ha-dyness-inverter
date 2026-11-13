@@ -15,11 +15,11 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, SOURCES
+from .const import DOMAIN
 from .coordinator import DynessCoordinator
 from .parsing import ENUMS, SKIP_KEYS, describe, is_list_item, leaf, to_number
 
-_SOURCE_LABEL = {"realtime": "", "energy": "", "status": "Status "}
+_SOURCE_LABEL = {"realtime": "", "energy": "", "status": "Status ", "power": "", "points": ""}
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -79,14 +79,20 @@ class DynessApiStatusSensor(CoordinatorEntity[DynessCoordinator], SensorEntity):
     @property
     def native_value(self) -> str:
         errors = self.coordinator.errors.get(self._sn, {})
-        ok = [s for s in SOURCES if s not in errors and (self.coordinator.data or {}).get(self._sn, {}).get(s) is not None]
-        if not errors:
-            return "OK"
-        return "Partial" if ok else "No data"
+        has_data = any((self.coordinator.data or {}).get(self._sn, {}).values())
+        if has_data:
+            return "Partial" if errors else "OK"
+        return "No data"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {f"{k}_error": v[:250] for k, v in self.coordinator.errors.get(self._sn, {}).items()}
+        attrs: dict[str, Any] = {f"{k}_error": v[:250] for k, v in self.coordinator.errors.get(self._sn, {}).items()}
+        if self._sn in self.coordinator.strategy:
+            gen, host = self.coordinator.strategy[self._sn]
+            attrs["api_used"] = f"{gen} @ {host}"
+        if self.coordinator.probe_log.get(self._sn):
+            attrs["probe"] = [line[:200] for line in self.coordinator.probe_log[self._sn]]
+        return attrs
 
 
 class DynessSensor(CoordinatorEntity[DynessCoordinator], SensorEntity):

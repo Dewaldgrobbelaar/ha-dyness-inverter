@@ -19,6 +19,8 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         "device_list": coordinator.device_list,
         "device_info": coordinator.device_info,
         "errors": coordinator.errors,
+        "working_api": {sn: f"{g} @ {h}" for sn, (g, h) in coordinator.strategy.items()},
+        "probe_log": coordinator.probe_log,
         "raw_responses": coordinator.raw,
         "parsed": coordinator.data,
     }
